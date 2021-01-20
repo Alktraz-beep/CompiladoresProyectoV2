@@ -1,0 +1,18 @@
+int SomosChidos;
+float hola;
+double putos;
+char putosdoblemente;
+void putosala3;
+float [5] putosputos;
+func int alaverga (float decentetugfa, float kllensealaverga){
+	while(i<tuputamadre){
+		if(true){
+			decente=1;
+		}	
+	}
+	switch(r){
+		case 0:
+			break;
+	}
+	return malditocompiladoreshpta ;
+}

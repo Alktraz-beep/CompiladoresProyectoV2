@@ -7,7 +7,8 @@ public class Main {
             FileReader fr = new FileReader(f);
             BufferedReader br = new BufferedReader(fr);
             Yylex lexer = new Yylex(br);
-            ParserPru parser = new ParserPru(lexer);
+            //ParserPru parser = new ParserPru(lexer);
+            ParserSem parser = new ParserSem(lexer);
             parser.init();
             br.close();
         }catch(IOException e){

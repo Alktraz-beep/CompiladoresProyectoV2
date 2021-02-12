@@ -1,18 +1,19 @@
-
+import java.lang.*;
 %%
 %type Token
 %eofval{
-    return nextToken("", 0);
+    return nextToken("", 0,yyline +1);
 %eofval}
 %line
 %{
-	public Token nextToken(String lex, int num){
-        return new Token(num, lex);
+	public Token nextToken(String lex, int num,int line){
+        return new Token(num, lex, line);
     }
 
-    public Token nextToken(String lex, int num, int type){
-        return new Token(num, lex, type);
+    public Token nextToken(String lex, int num, int type, int line){
+        return new Token(num, lex, type, line);
     }
+
     
 %}
 
@@ -39,9 +40,17 @@ ExpoFlo = (({Decimal})({Expo}?))|(({Enteros})({Expo}))
 Carac = [\\\"]
 Cadenas = (\"({Letra}|{Digito}|{Carac}|{esp}|{OP})+\"|\'({Letra}|{Digito}|{Carac}|{espacio}|{OP})+\')
 
+//comentarios
+inicioC = "<*"
+finC = "*>"
+CadenaC = (({Letra}|{Digito}|{Carac}|{esp}|{OP}|";"|"{"|"}"|":"|","|"."|{espacio}|"["|"]")+)
+comentM = ({inicioC})({CadenaC})({finC}) //comentario Multilinea
+CadenaU = (({Letra}|{Digito}|{Carac}|{esp}|{OP}|";"|"{"|"}"|":"|","|"."|"["|"]")+)
+comentU = ("--")({CadenaU})
+
 //Booleanos
-True = "true"
-False = "false"
+True = true
+False = false
 
 //operadores
 Asig = \=
@@ -81,54 +90,61 @@ Break=break
 Func=func
 Void = void
 Return = return
+Print = print
+Scan = scan
 
 %%
 {esps} {/*ignorar*/}
-{Switch} {return nextToken("", 1);}
-{Case} {return nextToken("", 2);}
-{If} {return nextToken("", 3);}
-{Int} {return nextToken("", 4);}
-{Float} {return nextToken("", 5);}
-{Char} {return nextToken("", 6);}
-{Double} {return nextToken("", 7);}
-{Do} {return nextToken("", 8);}
-{While} {return nextToken("", 9);}
-{Else} {return nextToken("", 10);}
-{Default} {return nextToken("", 11);}
-{Break} {return nextToken("", 12);}
-{Return} {return nextToken("", 47);}
-{Func} {return nextToken("", 13);}
-{Void} {return nextToken("", 14);}//agregue void, y recorri los numeros por la precedencia La May 11/01/21
-";" {return nextToken("", 15);}
-":" {return nextToken("", 16);}
-"," {return nextToken("", 17);} //se agregaron los token faltantes JEF 11/01/21
-"{" {return nextToken("", 18);} // Se agregaron los token faltantes AF 12/01/21
-"}" {return nextToken("", 19);}
-"[" {return nextToken("", 45);}
-"]" {return nextToken("", 46);}
-{Asig} {return nextToken("", 20);}
-{Parentesisabre} {return nextToken("", 21);}
-{Parentesiscierra} {return nextToken("", 22);}
-{Incremento} {return nextToken("", 23);}
-{Disyuncion} {return nextToken("", 24);}
-{And} {return nextToken("", 25);}
-{Igualque} {return nextToken("", 26);}
-{Diferente} {return nextToken("", 27);}
-{Menor} {return nextToken("", 28);}
-{Mayor} {return nextToken("", 29);}
-{Menorigual} {return nextToken("", 30);}
-{Mayorigual} {return nextToken("", 31);}
-{Suma} {return nextToken("", 32);}
-{Resta} {return nextToken("", 33);}
-{Mul} {return nextToken("", 34);}
-{Div} {return nextToken("", 35);}
-{Modulo} {return nextToken("", 36);}
-{Negacion} {return nextToken("", 37);}
-{Direccionmem} {return nextToken("", 38);}
-{Enteros} {return nextToken("", 39);}
-{ExpoFlo} {return nextToken("", 40);}
-{Cadenas} {return nextToken("", 41);}
-{True} {return nextToken("", 42);}
-{False} {return nextToken("", 43);}
-{Identificador} {return nextToken("", 44);}
-. {System.out.println("Error Léxico");}
+{comentM} {/*ignorar*/}
+{comentU} {/*ignorar*/}
+{Switch} {return nextToken(yytext(), 1,yyline +1);}
+{Case} {return nextToken(yytext(), 2,yyline +1);}
+{If} {return nextToken(yytext(), 3,yyline +1);}
+{Int} {return nextToken(yytext(), 4,yyline +1);}
+{Float} {return nextToken(yytext(), 5,yyline +1);}
+{Char} {return nextToken(yytext(), 6,yyline +1);}
+{Double} {return nextToken(yytext(), 7,yyline +1);}
+{Do} {return nextToken(yytext(), 8,yyline +1);}
+{While} {return nextToken(yytext(), 9,yyline +1);}
+{Else} {return nextToken(yytext(), 10,yyline +1);}
+{Default} {return nextToken(yytext(), 11,yyline +1);}
+{Break} {return nextToken(yytext(), 12,yyline +1);}
+{Return} {return nextToken(yytext(), 47,yyline +1);}
+{Func} {return nextToken(yytext(), 13,yyline +1);}
+{Void} {return nextToken(yytext(), 14,yyline +1);}//agregue void, y recorri los numeros por la precedencia La May 11/01/21
+{Print} {return nextToken(yytext(),48,yyline +1);}
+{Scan} {return nextToken(yytext(),49,yyline +1);}
+";" {return nextToken(yytext(), 15,yyline +1);}
+":" {return nextToken(yytext(), 16,yyline +1);}
+"," {return nextToken(yytext(), 17,yyline +1);} //se agregaron los token faltantes JEF 11/01/21
+"{" {return nextToken(yytext(), 18,yyline +1);} // Se agregaron los token faltantes AF 12/01/21
+"}" {return nextToken(yytext(), 19,yyline +1);}
+"[" {return nextToken(yytext(), 45,yyline +1);}
+"]" {return nextToken(yytext(), 46,yyline +1);}
+{Asig} {return nextToken(yytext(), 20,yyline +1);}
+{Parentesisabre} {return nextToken(yytext(), 21,yyline +1);}
+{Parentesiscierra} {return nextToken(yytext(), 22,yyline +1);}
+{Incremento} {return nextToken(yytext(), 23,yyline +1);}
+{Disyuncion} {return nextToken(yytext(), 24,yyline +1);}
+{And} {return nextToken(yytext(), 25,yyline +1);}
+{Igualque} {return nextToken(yytext(), 26,yyline +1);}
+{Diferente} {return nextToken(yytext(), 27,yyline +1);}
+{Menor} {return nextToken(yytext(), 28,yyline +1);}
+{Mayor} {return nextToken(yytext(), 29,yyline +1);}
+{Menorigual} {return nextToken(yytext(), 30,yyline +1);}
+{Mayorigual} {return nextToken(yytext(), 31,yyline +1);}
+{Suma} {return nextToken(yytext(), 32,yyline +1);}
+{Resta} {return nextToken(yytext(), 33,yyline +1);}
+{Mul} {return nextToken(yytext(), 34,yyline +1);}
+{Div} {return nextToken(yytext(), 35,yyline +1);}
+{Modulo} {return nextToken(yytext(), 36,yyline +1);}
+{Negacion} {return nextToken(yytext(), 37,yyline +1);}
+{Direccionmem} {return nextToken(yytext(), 38,yyline +1);}
+{Enteros} {return nextToken(yytext(), 39,yyline +1);}
+{ExpoFlo} {return nextToken(yytext(), 40,yyline +1);}
+{Cadenas} {return nextToken(yytext(), 41,yyline +1);}
+{True} {return nextToken(yytext(), 42,yyline +1);}
+{False} {return nextToken(yytext(), 43,yyline +1);}
+{Identificador} {return nextToken(yytext(), 44,yyline +1);}
+
+. {System.out.println("Error Léxico en linea: "+(yyline+1)+" \nGenerado por: "+yytext()); System.exit(0);}

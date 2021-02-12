@@ -1,6 +1,7 @@
 import java.io.IOException;
 import java.lang.*;
-public class ParserPru{
+import java.util.*;
+public class ParserSem{
 	public static final int SWITCH = 1;
 	public static final int CASE = 2;
 	public static final int IF = 3;
@@ -54,14 +55,31 @@ public class ParserPru{
 	Yylex lexer;
 	Token tokenActual;
 	int acp = 0;//bandera para error
-	int dir = 0; //contador de direcciones
-	TabladeSimbolos TS;
-	//Stack <TabladeSimbolos> pilaTS;  
-
-	public ParserPru(Yylex lexer)throws IOException{
+	int id = 0;
+	int idS = 0;
+	ArrayList<Integer> listaDir = new ArrayList<Integer>(); //contador de direcciones
+	//lista de retorno
+	TabladeSimbolos TSFondo;
+	TabladeTipos TTFondo;
+	Stack <TabladeSimbolos> pilaTS; 
+	public Stack <TabladeTipos> pilaTT; 
+	Semantico sem=new Semantico();
+	ArrayList<Integer> listaRetorno;
+	public ParserSem(Yylex lexer)throws IOException{
 		this.lexer = lexer;
-		TS = new TabladeSimbolos();
-		//pilaTS = new Stack<String>();
+		TSFondo = new TabladeSimbolos();
+		TTFondo = new TabladeTipos();
+		TTFondo.setSimbol(new Tipo(id,"int",4,0,-1));
+		id++;
+		TTFondo.setSimbol(new Tipo(id,"float",4,0,-1));
+		id++;
+		TTFondo.setSimbol(new Tipo(id,"char",1,0,-1));
+		id++;
+		TTFondo.setSimbol(new Tipo(id,"double",8,0,-1));
+		id++;
+		pilaTS = new Stack<TabladeSimbolos>();
+		pilaTT = new Stack<TabladeTipos>();
+		//pilaTT.peek().impTabla();
 	}
 
 	public void init()throws IOException{
@@ -70,26 +88,32 @@ public class ParserPru{
 		if (this.acp == 0 && tokenActual.equals(0))
 			System.out.println("Cadena aceptada");
 		else
-			System.out.println("Error en la linea: "+tokenActual.linea+" Error sintactico");
+			System.out.println("Error en la linea: "+tokenActual.linea+" Error sintactico "+tokenActual.valor);
 	}
 
 	void error(String msj)throws IOException{
-		System.out.println("Error en la linea: "+tokenActual.linea+" "+msj);
+		System.out.println("Error en la linea: "+tokenActual.linea+" "+msj+"\n Error generado por:"+tokenActual.valor);
 		//System.out.println(msj);
-		System.out.println(tokenActual.valor);
+		//System.out.println();
 
 		this.acp = -1;
 	}
 	
 	void programa()throws IOException{
+		pilaTS.push(TSFondo);
+		pilaTT.push(TTFondo);
+		listaDir.add(0);
+		
 		declaraciones();
 		funciones();
+		TTFondo.impTabla();
+		TSFondo.impTabla();
 	}
 	//declaraciones → tipo lista_var; declaraciones | epsilon
 	void declaraciones()throws IOException{
 		if(tokenActual.equals(INT)|| tokenActual.equals(FLOAT)||tokenActual.equals(CHAR)|| tokenActual.equals(DOUBLE)|| tokenActual.equals(VOID)){
-			tipo();
-			lista_var();
+			int listVarTipo = tipo();
+			lista_var(listVarTipo);
 			if(tokenActual.equals(PUNTOYC)){
 				tokenActual = lexer.yylex();
 				declaraciones();
@@ -100,30 +124,54 @@ public class ParserPru{
 	}
 
 	//basico → int|float|char|double|void
-	void basico()throws IOException{
+	int basico()throws IOException{
  		if(tokenActual.equals(INT)|| tokenActual.equals(FLOAT)||tokenActual.equals(CHAR)|| tokenActual.equals(DOUBLE)|| tokenActual.equals(VOID)){		
-			tokenActual = lexer.yylex();
-			
+			switch(tokenActual.clase){
+				case INT:
+					tokenActual = lexer.yylex();
+					return 0;
+				case FLOAT:
+					tokenActual = lexer.yylex();
+					return 1;
+				case CHAR:
+					tokenActual = lexer.yylex();
+					return 2;
+				case DOUBLE:
+					tokenActual = lexer.yylex();
+					return 3;
+				case VOID:
+					tokenActual = lexer.yylex();
+					return 4;
+				default:
+					error("Error Semántico: No existe ese tipo de dato");
+					return -1;
+			}
  		}
  		else
  		{
  			error("Error Sintáctico: No se reconoce el tipo de dato");
  		}
+ 		return -1;
  	}
  	//tipo → basico compuesto
-	void tipo()throws IOException{
-			basico();
-			compuesto();
+	int tipo()throws IOException{
+		int compuestoBase = basico();
+		return compuesto(compuestoBase);
 	}
 	//compuesto → (numero) compuesto | epsilon
-	private void compuesto()throws IOException{
+	int compuesto(int compuestoBase)throws IOException{
  		if(tokenActual.equals(CORCHA)){
  			tokenActual = lexer.yylex();
  			if(tokenActual.equals(ENTEROS)){
+ 				int aux=Integer.parseInt(tokenActual.valor);
  				tokenActual = lexer.yylex();
  				if(tokenActual.equals(CORCHC)){
  					tokenActual = lexer.yylex();
- 					compuesto();
+ 					int tam=pilaTT.peek().getTam(compuestoBase);
+ 					pilaTT.peek().setSimbol(new Tipo (id,"array",tam*aux,aux,compuestoBase));
+ 					//dir = dir + pilaTT.peek().getTam(id);
+ 					id++;
+ 					return compuesto(id-1);
  				}
  				else
  					error("Error Sintáctico: Se esperaba un ]");
@@ -131,28 +179,43 @@ public class ParserPru{
  			else
  				error("Error Sintáctico: Se esperaba un entero ");
  		}
- 		
+ 		return compuestoBase;
  	}
  	/*lista_var → lista_var,id|id
 		Recursividad izquierda:
 		lista_var→ id lista_var’
 		lista_var’→, id lista_var’|epsilon
  	*/
- 	 void lista_var()throws IOException{
+ 	 void lista_var(int listaVar)throws IOException{
  		if(tokenActual.equals(ID)){
- 			tokenActual = lexer.yylex();
- 			lista_varP();
+ 			int listaVarP = listaVar;
+ 			if (!pilaTS.peek().buscar(tokenActual.valor)){
+ 				pilaTS.peek().setSimbol(new Simbolo(tokenActual.valor,listaDir.get(0),listaVarP,null,"var"));
+ 				//dir = dir + pilaTT.peek().getTam(listaVarP);
+ 				listaDir.set(0,listaDir.get(0)+ pilaTT.peek().getTam(listaVarP));
+ 				tokenActual = lexer.yylex();
+ 			}
+ 			else {
+ 				error("Error Semántico: el id ya está declarado");
+ 			}
+  			lista_varP(listaVarP);
  		}
  		else
  			error("Error Sintáctico:Se esperaba un identificador");
  	}
 //lista_var'→  , id lista_var'|epsilon
- 	void lista_varP()throws IOException{
+ 	void lista_varP(int listaVarP)throws IOException{
  		if(tokenActual.equals(COMA)){
  			tokenActual = lexer.yylex();
  			if(tokenActual.equals(ID)){
-	 			tokenActual = lexer.yylex();
- 				lista_varP();
+ 				if (!pilaTS.peek().buscar(tokenActual.valor)){
+ 					pilaTS.peek().setSimbol(new Simbolo(tokenActual.valor,listaDir.get(0),listaVarP,null,"var"));
+ 					listaDir.set(0,listaDir.get(0)+ pilaTT.peek().getTam(listaVarP));
+ 					tokenActual = lexer.yylex();
+ 				}else{
+ 					error("Error Semántico: el id ya está declarado");
+ 				}
+ 				lista_varP(listaVarP);
  			}
  			else
  				error("Error Sintáctico: Se esperaba un identificador");
@@ -161,34 +224,54 @@ public class ParserPru{
  	}
  	// funciones → func tipo id (argumentos) bloque funciones | epsilon
  	void funciones()throws IOException{
+ 		listaRetorno= new ArrayList<Integer>();
+ 		listaDir.add(0);
+ 		pilaTS.push(new TabladeSimbolos());
+		pilaTT.push(new TabladeTipos());
  		if(tokenActual.equals(FUNC)){
  			tokenActual = lexer.yylex();
- 			tipo();
+ 			int functipo=tipo();
  			if(tokenActual.equals(ID)){
+ 				String auxid=tokenActual.valor;
  				tokenActual = lexer.yylex();
- 				if(tokenActual.equals(PARENTA)){
- 					tokenActual = lexer.yylex();
- 					argumentos();
- 					if(tokenActual.equals(PARENTC)){
-						tokenActual = lexer.yylex();
- 						bloque();
- 						funciones();
- 					}
- 					else
- 						error("Error Sintáctico: Se esperaba un )");
- 				}
- 				else
- 					error("Error Sintáctico: Se esperaba un (");
+ 				if(!TSFondo.buscar(auxid)){
+	 				if(tokenActual.equals(PARENTA)){
+	 					tokenActual = lexer.yylex();
+	 					ArrayList<Integer> argumentosLista=new ArrayList<Integer>();
+	 					argumentosLista=argumentos();
+	 					//gencode
+	 					//nueva etiq
+	 					if(tokenActual.equals(PARENTC)){
+							tokenActual = lexer.yylex();
+	 						bloque();
+	 						TSFondo.setSimbol(new Simbolo(auxid,listaDir.get(0),functipo,argumentosLista,"func"));
+	 						//gencode()
+	 						System.out.println("TablaTT func "+auxid);
+	 						pilaTT.peek().impTabla();
+	 						System.out.println("TablaTS func "+auxid);
+	 						pilaTS.peek().impTabla();
+	 						funciones();
+	 					}
+	 					else
+	 						error("Error Sintáctico: Se esperaba un )");
+	 				}
+	 				else
+	 					error("Error Sintáctico: Se esperaba un (");
+	 			}
+	 			else
+	 				error("Error semantico :El id ya esta declarado");
  			}
  			else 
  				error("Error Sintáctico: Se esperaba un identificador");
  		}
+			
  	}
  	// argumentos → lista_args|epsilon
-	public void argumentos() throws IOException
+	public ArrayList<Integer>  argumentos() throws IOException
 	{
 		if(tokenActual.equals(INT)||tokenActual.equals(FLOAT)||tokenActual.equals(CHAR)||tokenActual.equals(DOUBLE)||tokenActual.equals(VOID))
-			lista_args();
+			return lista_args();
+		return null;
 	}
 
 	/*
@@ -198,37 +281,41 @@ public class ParserPru{
 		lista_args’ → , tipo id lista_args’| epsilon
 	*/
 	// lista_args → tipo id lista_args’
-	public void lista_args() throws IOException
+	public ArrayList<Integer>  lista_args() throws IOException
 	{
-		tipo();
+		ArrayList<Integer> listaArgsP=new ArrayList<Integer>();
+		int auxtipo=tipo();
 		if(tokenActual.equals(ID))
 		{
 			tokenActual = lexer.yylex();
-			lista_argsP();
+			listaArgsP.add(auxtipo);
+			return lista_argsP(listaArgsP);
 		}
 		else
 		{
 			error("Error Sintáctico: se esperaba identificador");
 		}
+		return listaArgsP;
 	}
 	// lista_args’ → , tipo id lista_args’| epsilon
-	public void lista_argsP() throws IOException
+	public ArrayList<Integer> lista_argsP(ArrayList<Integer> listaArgsP) throws IOException
 	{
 		if(tokenActual.equals(COMA))
 		{
 			tokenActual = lexer.yylex();
-			tipo();
+			int auxtipo=tipo();
 			if(tokenActual.equals(ID))
 			{
 				tokenActual = lexer.yylex();
-				lista_argsP();
+				listaArgsP.add(auxtipo);
+				return lista_argsP(listaArgsP);
 			}
 			else
 			{
 				error("Error Sintáctico: Se esperaba identificador");
 			}
 		}
-		
+		return listaArgsP;
 	}
 
 	// bloque → {declaraciones instrucciones}
@@ -536,7 +623,7 @@ public class ParserPru{
 
 	void parte_izquierdaP() throws IOException{
 		if(tokenActual.equals(CORCHA))
-			localizacion();
+			localizacion("");
 	}
 	/* bool bool → bool ||  comb | comb
 		ELIMINACION recursividad izq
@@ -711,6 +798,7 @@ public class ParserPru{
 
 	// unario → !unario|-unario|factor
 	public void unario()throws IOException{
+		ArrayList<String> auxarray=new ArrayList<String>();
 		switch(tokenActual.clase){
 			case NEGACION:
 				tokenActual=lexer.yylex();
@@ -721,16 +809,22 @@ public class ParserPru{
 				unario();
 				break;
 			default:
-				if(tokenActual.equals(PARENTA) || tokenActual.equals(ID) || tokenActual.equals(ENTEROS) || tokenActual.equals(CADENA) || tokenActual.equals(TRUE) || tokenActual.equals(FALSE) )
-					factor();
-				else
+				if(tokenActual.equals(PARENTA) || tokenActual.equals(ID) || tokenActual.equals(ENTEROS) || tokenActual.equals(CADENA) || tokenActual.equals(TRUE) || tokenActual.equals(FALSE) ){
+					auxarray=factor();
+					//String auxtipo=auxarray.get(0);
+					//factor();
+					//int unarioTipo=Integer.parseInt(auxarray.get(0));
+				}
+				else{
 					error("Error Sintáctico: Simbolo invalido");
+				}
 				break;
 		}
 	}
 
 	//factor → (bool)|localizaciobn|numero|cadena|true|false|id(parametros)
-	public void factor()throws IOException{
+	public ArrayList<String> factor()throws IOException{
+		ArrayList<String> factipodir=new ArrayList<String>();
 		switch(tokenActual.clase){
 			case PARENTA:
 				tokenActual=lexer.yylex();
@@ -741,33 +835,60 @@ public class ParserPru{
 					error("Error Sintáctico: Se esperaba )");
 				break;
 			case ENTEROS:
+				factipodir.add(0,"0");
+				factipodir.add(1,tokenActual.valor);
 				tokenActual=lexer.yylex();
 				break;
 			case CADENA:
+				factipodir.add(0,tokenActual.valor);
+				factipodir.add(1,"dir");
 				tokenActual=lexer.yylex();
 				break;
 			case TRUE:
+				factipodir.add(0,"0");
+				factipodir.add(1,"true");
 				tokenActual=lexer.yylex();
 				break;
 			case FALSE:
+				factipodir.add(0,"0");
+				factipodir.add(1,"false");
 				tokenActual=lexer.yylex();
 				break;
 			case ID:
+				String factorPBase=tokenActual.valor;
 				tokenActual=lexer.yylex();
-				if(tokenActual.equals(PARENTA)){
-					tokenActual=lexer.yylex();
-					parametros();
-					if(tokenActual.equals(PARENTC))
-						tokenActual=lexer.yylex();
-					else
-						error("Error Sintáctico: Se esperaba un )");
-				}else
-					localizacion();
-				
-				break;
+				factipodir=factorP(factorPBase);
 			default:
 				break;
 		}
+		return factipodir;
+	}
+
+	public ArrayList<String>  factorP(String factorPBase) throws IOException{
+		ArrayList<String> facPtipodir=new ArrayList<String>();
+			if(tokenActual.equals(PARENTA)){ 
+				if(TSFondo.buscar(factorPBase)){
+					if(TSFondo.getVar(factorPBase)=="func"){
+						//if(TSFondo.getArgs(factorPBase)){
+							tokenActual=lexer.yylex();
+							parametros();
+							if(tokenActual.equals(PARENTC)){
+								tokenActual=lexer.yylex();
+							}
+						//}else{
+
+						//}
+					}else{
+						error("Error Semantico: id no es funcion");
+					}
+				}else{
+					error("Error Semantico: El id no esta declarado");
+				}
+			}else if(tokenActual.equals(CORCHA)){
+				facPtipodir.add(0,localizacion(factorPBase));
+				facPtipodir.add(1,"nueva etiqueta");
+			}
+			return facPtipodir;
 	}
 
 	//parametros → lista_param|epsilon
@@ -801,19 +922,24 @@ public class ParserPru{
 	
 	//localizacion→id localizacion’
 
-	public void localizacion()throws IOException{
-		if(tokenActual.equals(ID)){
+	public String localizacion(String factorPBase)throws IOException{
+		if(tokenActual.equals(CORCHA)){
 			tokenActual=lexer.yylex();
+			bool();
+			if(tokenActual.equals(CORCHC)){
+				tokenActual=lexer.yylex();
+			}
 			localizacionP();
 		}
+		return "";
 	}
 
 	//localizacion’→ (bool) localizacion’|epsilon
 	void localizacionP()throws IOException{
-		if(tokenActual.equals(PARENTA)){
+		if(tokenActual.equals(CORCHA)){
 			tokenActual=lexer.yylex();
 			bool();
-			if(tokenActual.equals(PARENTC)){
+			if(tokenActual.equals(CORCHC)){
 				tokenActual=lexer.yylex();
 				localizacionP();
 			}else{
